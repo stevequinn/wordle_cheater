@@ -51,6 +51,10 @@ def get_possibles(options, state, word):
                 if word[sidx] not in opt:
                     possible = False
                     break
+            if s == 0:
+                if word[sidx] in opt:
+                    possible = False
+                    break
 
             if opt in possibles:
                 possible = False
