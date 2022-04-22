@@ -16,7 +16,7 @@ def log(*args, **kwargs):
 def generate_table(rows) -> Table:
     """Make a new table."""
     table = Table()
-    table.add_column("Choice")
+    table.add_column("Word Choice")
     table.add_column("Result")
 
     for row in rows:
@@ -33,31 +33,27 @@ def get_possibles(options, state, word):
             continue
 
         opt = option.lower()
-
         possible = False
+
+        if opt in possibles:
+            continue
+
         for sidx, s in enumerate(state):
+
             if s == 1:
-                if opt[sidx] == word[sidx]:
-                    possible = True
-                if opt[sidx] != word[sidx]:
-                    possible = False
-                    break
+                possible = opt[sidx] == word[sidx]
             if s == 2:
                 if word[sidx] in opt:
                     possible = True
                     if opt.index(word[sidx]) == sidx:
                         possible = False
-                        break
                 if word[sidx] not in opt:
                     possible = False
-                    break
             if s == 0:
                 if word[sidx] in opt:
                     possible = False
-                    break
 
-            if opt in possibles:
-                possible = False
+            if not possible:
                 break
 
         if possible:
@@ -65,31 +61,19 @@ def get_possibles(options, state, word):
 
     return possibles
 
-def gen_opts(word_hist, state_hist):
-    # base_list = [
-    #     'first',
-    #     'secon',
-    #     'third',
-    #     'forth'
-    # ]
-    # options = base_list
+def gen_opts(words, word_hist, state_hist):
+    opts = []
 
-    with open('./words5.txt', 'r') as my_file:
-        data = my_file.read()
-        options = data.replace('\n', ' ').split(' ')
-        opts = []
+    for widx, word in enumerate(word_hist):
 
-        for widx, word in enumerate(word_hist):
+        if len(opts) == 0:
+            # Only filter if there is something to filter.
+            # If no letter matches where found then get_possibles will return an empty list.
+            opts = words
 
-            if len(opts) == 0:
-                # Only filter if there is something to filter.
-                # If no letter matches where found then get_possibles will return an empty list.
-                opts = options
+        opts = get_possibles(opts, state_hist[widx], word)
 
-            opts = get_possibles(opts, state_hist[widx], word)
-
-        return opts
-
+    return opts
 
 def get_key(key):
     if key == '\033':
@@ -124,85 +108,79 @@ def make_layout() -> Layout:
         Layout(name="main", ratio=1),
     )
     layout["main"].split_row(
-        Layout(name="side"),
+        Layout(name="side", minimum_size=46),
         Layout(name="body", ratio=2, minimum_size=60),
     )
     return layout
 
+def load_words(path):
+    words = []
+    with open(path, 'r') as my_file:
+        data = my_file.read()
+        words = data.replace('\n', ' ').split(' ')
+    return words
+
 def main():
     log('Wordle Solver', style='bold green')
-
-
-    up = 'A'
-    down = 'B'
-    right = 'C'
-    left = 'D'
-
-    letters = 5
-    turns = 6
-    tpl_empty = '[  ] [  ] [  ] [  ] [  ]'
-
-    rows = []
-    rows.append(
-        ("", tpl_empty, "")
-    )
-    table = generate_table(rows)
 
     word = [] # []
     state = [] # []
     word_hist = [] # [[]]
     state_hist = [] # [[]]
-    opts = []
-
+    word_options = []
+    choice_rows = []
+    up = 'A'
+    down = 'B'
+    right = 'C'
+    left = 'D'
+    tpl_empty = '[  ] [  ] [  ] [  ] [  ]'
     layout = make_layout()
+    words = load_words('./words5.txt')
 
-    with Live(layout, refresh_per_second=10, vertical_overflow='visible') as live:
+    with Live(layout, refresh_per_second=10, vertical_overflow='visible'):
+        # append new row
+        choice_rows.append(
+            ("", tpl_empty)
+        )
+
         while True:
 
-            layout['side'].update(Panel(generate_table(rows)))
-            layout['body'].update(Panel(" ".join(opts)))
-            time.sleep(0.5)
+            word_options = gen_opts(words, word_hist, state_hist)
+            layout['side'].update(Panel(generate_table(choice_rows)))
+            layout['body'].update(Panel(" ".join(word_options)))
+            time.sleep(0.5) # Needs time to update ui before getch key pause
 
-            if len(word) == 5:
-
-                while len(state) < 5:
-                    key = get_key(getch.getch())
-                    # deal with setting state
-                    if key == up:
-                        state.append(1) # green
-                    elif key == down:
-                        state.append(2) # yellow
-                    elif key == right:
-                        state.append(0) # white
-
-                    rows[-1] = ("".join(word), " ".join(get_result(state)))
-                    layout['side'].update(Panel(generate_table(rows)))
-                    layout['body'].update(Panel(" ".join(opts)))
-                    time.sleep(0.5)
-
-                word_hist.append(word.copy())
-                state_hist.append(state.copy())
-
-                word.clear()
-                state.clear()
-
-                # append new row
-                opts = gen_opts(word_hist, state_hist)
-                rows.append(
-                    ("", tpl_empty)
-                )
-            else:
+            if len(word) < 5:
+                # Word needs 5 letters
                 key = get_key(getch.getch())
                 if key not in [up, down, right, left]:
                     word.append(key)
-                    rows[-1] = ("".join(word), tpl_empty)
+                    choice_rows[-1] = ("".join(word), tpl_empty)
+                continue
 
+            while len(state) < 5:
+                key = get_key(getch.getch())
+                # deal with setting state
+                if key == up:
+                    state.append(1) # green
+                elif key == down:
+                    state.append(2) # yellow
+                elif key == right:
+                    state.append(0) # white
 
-    # while turns > 0:
-    #     line = list(input("Word: "))
-    #     choices.append(line)
-    #     turns -= 1
+                choice_rows[-1] = ("".join(word), " ".join(get_result(state)))
+                layout['side'].update(Panel(generate_table(choice_rows)))
+                time.sleep(0.5)
 
+            word_hist.append(word.copy())
+            state_hist.append(state.copy())
+            word.clear()
+            state.clear()
+
+            # append new row
+            choice_rows.append(
+                ("", tpl_empty)
+            )
 
 if __name__ == '__main__':
     main()
