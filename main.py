@@ -26,6 +26,15 @@ def generate_table(rows) -> Table:
     return table
 
 def get_possibles(options, state, word):
+    """
+    Args:
+        options (_type_): _description_
+        state (_type_): _description_
+        word (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     possibles = []
 
     for oidx, option in enumerate(options):
@@ -33,27 +42,29 @@ def get_possibles(options, state, word):
             continue
 
         opt = option.lower()
-        possible = False
-
-        if opt in possibles:
-            continue
 
         for sidx, s in enumerate(state):
+            possible = True
 
-            if s == 1:
-                possible = opt[sidx] == word[sidx]
-            if s == 2:
-                if word[sidx] in opt:
-                    possible = True
-                    if opt.index(word[sidx]) == sidx:
-                        possible = False
-                if word[sidx] not in opt:
-                    possible = False
             if s == 0:
                 if word[sidx] in opt:
                     possible = False
+                    break
+            if s == 1:
+                if opt[sidx] != word[sidx]:
+                    possible = False
+                    break
+            if s == 2:
+                if word[sidx] in opt:
+                    if opt.index(word[sidx]) == sidx:
+                        possible = False
+                        break
+                if word[sidx] not in opt:
+                    possible = False
+                    break
 
-            if not possible:
+            if opt in possibles:
+                possible = False
                 break
 
         if possible:
@@ -145,7 +156,6 @@ def main():
 
         while True:
 
-            word_options = gen_opts(words, word_hist, state_hist)
             layout['side'].update(Panel(generate_table(choice_rows)))
             layout['body'].update(Panel(" ".join(word_options)))
             time.sleep(0.5) # Needs time to update ui before getch key pause
@@ -176,6 +186,8 @@ def main():
             state_hist.append(state.copy())
             word.clear()
             state.clear()
+
+            word_options = gen_opts(words, word_hist, state_hist)
 
             # append new row
             choice_rows.append(
